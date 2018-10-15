@@ -5,7 +5,7 @@ var inquirer = require("inquirer");
 var connection = mysql.createConnection({
   host: "localhost",
 
-  // Your port; if not 3306
+  // Your port
   port: 3306,
 
   // Your username
@@ -43,32 +43,65 @@ function start() {
     });
 }
 
-// function buyItem() {
-//   inquirer.prompt([{
-//     name: "item",
-//     type: "input",
-//     message: "Which item are you interested in purchasing?"
-//   },
-//   ])
-// }
-
 function findItem() {
-  connection.query("SELECT * FROM products", function(err, results) {
+  connection.query("SELECT * FROM products", function (err, results) {
     if (err) throw err;
+    console.log(results);
     inquirer.prompt([
       {
         name: "choice",
         type: "rawlist",
-        choices: function(){
+        choices: function () {
           var choices = [];
-          for (var i=0; i < results.length; i++) {
+          for (var i = 0; i < results.length; i++) {
             choices.push(results[i].product_name);
           }
           return choices;
         },
-        message: "Which item would you like to purchase?"
+        message: "What is the item_id of the product you'd like to purchase?"
+      },
+      {
+        name: "quantity",
+        type: "input",
+        message: "How many units would you like?",
+        validate: function(value){
+          if (isNaN(value) === false) {
+            return true;
+          }
+          return false;
+        }
       },
     ])
-  }
-)
+    .then(function (answer) {
+      // get the information of the chosen item
+      var chosenItem;
+      for (var i = 0; i < results.length; i++) {
+        if (results[i].stock_quantity === answer.quantity) {
+          chosenItem = results[i];
+        }
+      }
+      if (chosenItem < parseInt(results.stock_quantity)) {
+        connection.query(
+          "UPDATE products SET ? WHERE ?",
+          [
+            {
+              stock_quantity: answer.quantity
+            },
+            {
+              item_id: chosenItem.item_id
+            }
+          ],
+          function (error) {
+            if (error) throw err;
+            console.log("You've purchased " + answer.quantity + findItem.chosenItem);
+            start();
+          }
+        )
+      }
+      else {
+        console.log("Insufficient quantity!");
+        start();
+      }
+    })
+  })
 }
